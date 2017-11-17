@@ -1,0 +1,33 @@
+task deployTestableModules {
+	dependsOn {
+		subprojects.findAll{ project ->
+			project.plugins.hasPlugin("com.liferay.osgi.plugin") &&
+				!project.name.endsWith("-portlet") &&
+				!project.name.endsWith("-test") &&
+				!project.name.endsWith("-web")
+		}.deploy
+	}
+}
+
+task removeDefaultTestBundles(type: Delete) {
+	delete fileTree("${gradle.liferayWorkspace.homeDir}/osgi/test") {
+        include '*.jar'
+    }
+}
+
+subprojects {
+	project.plugins.withId('com.liferay.test.integration') {
+		dependencies {
+			testModules group: "org.apache.aries.jmx", name: "org.apache.aries.jmx.core", version: "1.1.7"
+			testModules group: "com.liferay.portal", name: "com.liferay.portal.test", version: "3.0.0"
+			testModules group: "com.liferay.portal", name: "com.liferay.portal.test.integration", version: "3.0.0"
+		}
+
+		copyTestModules.dependsOn removeDefaultTestBundles
+
+		startTestableTomcat {
+			checkTimeout = 10 * 60 * 1000
+			dependsOn deployTestableModules
+		}
+	}
+}
